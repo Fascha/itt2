@@ -31,6 +31,7 @@ import sys
 import wiimote
 
 import time
+import math
 
 class Test(object):
 
@@ -59,10 +60,102 @@ class Test(object):
                     # self.wm.rumble(0.1)
                     if self.wm.buttons['A']:
                         print(self.wm.accelerometer)
+                        self.wm.speaker.beep()
                     time.sleep(0.05)
 
 
 
+class Game(object):
+
+    def __init__(self, wm):
+        self.wm = wm
+
+        # für horizontales balancieren
+        self.avgx = 510
+        self.avgy = 511
+        self.avgz = 608
+
+        """
+        # für stehend auf ir sensor
+        self.avgx = 512
+        self.avgy = 612
+        self.avgz = 508
+
+        # für stehend auf unteren ende (anschluss für zusatzteile)
+        self.avgx = 509
+        self.avgy = 409
+        self.avgz = 508
+
+        # für auf der seite liegend (mac aufkleber oben)
+        self.avgx = 613
+        self.avgy = 512
+        self.avgz = 510
+
+        # für auf der seite liegend (mac aufkleber unten)
+        self.avgx = 408
+        self.avgy = 508
+        self.avgz = 509
+        """
+
+
+        self.game_running = False
+
+        self.game_loop()
+
+
+    def game_loop(self):
+        self.game_running = True
+
+        # xcounter = 0
+        # ycounter = 0
+        # zcounter = 0
+        #
+        # x = []
+        # y = []
+        # z = []
+
+        while self.game_running:
+            ac = self.wm.accelerometer
+
+            # counter += 1
+            # if ac[0] > 0:
+            #     x.append(ac[0])
+            # else:
+            #     xcounter += 1
+            #
+            # if ac[1] > 0:
+            #     y.append(ac[1])
+            # else:
+            #     ycounter += 1
+            #
+            # if ac[2] > 0:
+            #     z.append(ac[2])
+            # else:
+            #     zcounter += 1
+
+
+            print(ac)
+
+            # if ac[0] > 0 and ac[1] > 0 and ac[2] > 0:
+            #     if math.fabs(ac[0] - self.avgx) > 50:
+            #         self.game_over()
+
+            if self.wm.buttons['A']:
+                self.game_over()
+
+
+        print("GAME OVER")
+        # print("# of measures: %d" %(len(x)))
+        # print("avg x: %d" % (sum(x)/len(x)))
+        # print("avg y: %d" % (sum(y)/len(y)))
+        # print("avg z: %d" % (sum(z)/len(z)))
+        # print("x counter: %d" % (xcounter))
+        # print("y counter: %d" % (ycounter))
+        # print("z counter: %d" % (zcounter))
+        self.wm.speaker.beep()
+
+    def game_over(self):
+        self.game_running = False
 
 def main():
 
@@ -83,10 +176,10 @@ def main():
         addr = sys.argv[1]
         name = None
 
-
     print(("Connecting to %s (%s)" % (name, addr)))
     wm = wiimote.connect(addr, name)
-    test = Test(wm)
+    # test = Test(wm)
+    game = Game(wm)
 
 if __name__ == '__main__':
     main()
