@@ -30,10 +30,63 @@ Points
 import sys
 import wiimote
 
+import time
+
+class Test(object):
+
+    def __init__(self, wm):
+        self.wm = wm
+
+
+        self.have_fun()
+
+    def set_leds_blinking(self):
+        pass
+
+
+    def have_fun(self):
+        while True:
+            patterns = [[1, 0, 0, 0],
+            [0, 1, 0, 0],
+            [0, 0, 1, 0],
+            [0, 0, 0, 1],
+            [0, 0, 1, 0],
+            [0, 1, 0, 0],
+            [1, 0, 0, 0]]
+            for i in range(5):
+                for p in patterns:
+                    self.wm.leds = p
+                    # self.wm.rumble(0.1)
+                    if self.wm.buttons['A']:
+                        print(self.wm.accelerometer)
+                    time.sleep(0.05)
+
+
 
 
 def main():
-    pass
+
+    addr_hard = 'B8:AE:6E:1B:5B:03'
+    name_hard = 'Nintendo RVL-CNT-01-TR'
+
+    input("Press the 'sync' button on the back of your Wiimote Plus " +
+      "or buttons (1) and (2) on your classic Wiimote.\n" +
+      "Press <return> once the Wiimote's LEDs start blinking.")
+
+    if len(sys.argv) == 1:
+        # type of both is str
+        # addr, name = wiimote.find()[0]
+        addr = addr_hard
+        name = name_hard
+
+    elif len(sys.argv) == 2:
+        addr = sys.argv[1]
+        name = None
+
+
+    print(("Connecting to %s (%s)" % (name, addr)))
+    wm = wiimote.connect(addr, name)
+    test = Test(wm)
 
 if __name__ == '__main__':
     main()
