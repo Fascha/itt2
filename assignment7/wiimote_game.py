@@ -31,44 +31,41 @@ import sys
 import wiimote
 
 import time
-import math
-
-class Test(object):
-
-    def __init__(self, wm):
-        self.wm = wm
-
-
-        self.have_fun()
-
-    def set_leds_blinking(self):
-        pass
-
-
-    def have_fun(self):
-        while True:
-            patterns = [[1, 0, 0, 0],
-            [0, 1, 0, 0],
-            [0, 0, 1, 0],
-            [0, 0, 0, 1],
-            [0, 0, 1, 0],
-            [0, 1, 0, 0],
-            [1, 0, 0, 0]]
-            for i in range(5):
-                for p in patterns:
-                    self.wm.leds = p
-                    # self.wm.rumble(0.1)
-                    if self.wm.buttons['A']:
-                        print(self.wm.accelerometer)
-                        self.wm.speaker.beep()
-                    time.sleep(0.05)
-
+import random
 
 
 class Game(object):
 
+    LEDS_OFF = [0, 0, 0, 0]
+
+    LED_PATTERNS = [[1, 0, 0, 0],
+                    [0, 1, 0, 0],
+                    [0, 0, 1, 0],
+                    [0, 0, 0, 1]]
+
+    SEQUENCE_TO_BUTTON = { 0: 'Left',
+                           1: 'Up',
+                           2: 'Right',
+                           3: 'Down'}
+
+    SEQUENCE_LED_DELAY = 0.5
+    START_DELAY = 0.5
+
     def __init__(self, wm):
         self.wm = wm
+
+        self.wm.leds = self.LEDS_OFF
+
+        self.sequence_repeats_available = 3
+        self.current_level = 0
+        self.current_correct_keys = 0
+        self.current_sequence = None
+        self.game_running = False
+
+        self.current_sequence_showed = False
+        self.current_level_completed = False
+
+        self.current_awaited_button = None
 
         # für horizontales balancieren
         self.avgx = 510
@@ -97,65 +94,103 @@ class Game(object):
         self.avgz = 509
         """
 
+        self.display_instructions()
 
-        self.game_running = False
+
+    def display_instructions(self):
+        print("\nWelcome to WiiBop Lite!\n")
+        print("Goal of WiiBop Lite is to remember a showed series of LEDs.")
+        print("You will get an increasing amount of LEDs for each round.")
+        print("If you get one single input wrong you will start again from scratch.")
+        print("As Input you have to use the 'Arrow-Keys' which correspond to the LEDs as follows:")
+        print("LED 1: Left")
+        print("LED 2: Up")
+        print("LED 3: Right")
+        print("LED 4: Down")
+        print("You have the option to show the LED sequence again by pressing the '1' Button. "
+              "This feature is only available %d times so use it carefully!" % (self.sequence_repeats_available))
+        print("Press the 'A' button on your WiiMote to start the Game!")
+
+        while not self.game_running:
+            if self.wm.buttons['A']:
+                self.game_running = True
 
         self.game_loop()
 
+    def handle_button(self, buttons):
+
+        if len(buttons) > 0:
+            if len(buttons) == 1:
+                if buttons[0][1] == False:
+                    print("awaited button", self.current_awaited_button)
+                    if buttons[0][0] == self.current_awaited_button:
+                        self.handle_correct_input()
+                    else:
+                        self.game_over()
+            else:
+                print(buttons)
+
+    def handle_correct_input(self):
+        self.wm.rumble(0.1)
+        self.current_correct_keys += 1
+        if self.current_correct_keys < self.current_level:
+            print("correct keys < level")
+            self.current_awaited_button = self.SEQUENCE_TO_BUTTON[self.current_sequence[self.current_correct_keys]]
+        elif self.current_correct_keys == self.current_level:
+            print("correct keys == level => next level")
+            self.next_level()
+        else:
+            print("SOMETHING WENT WRONG! WE SOULD NEVER GET HERE!")
+
+    def next_level(self):
+        self.current_level += 1
+        self.current_correct_keys = 0
+        self.current_sequence = self.generate_next_sequence(self.current_level)
+        self.current_awaited_button = self.SEQUENCE_TO_BUTTON[self.current_sequence[self.current_correct_keys]]
+        time.sleep(self.START_DELAY)
+        self.show_current_sequence()
 
     def game_loop(self):
-        self.game_running = True
-
-        # xcounter = 0
-        # ycounter = 0
-        # zcounter = 0
-        #
-        # x = []
-        # y = []
-        # z = []
+        print("GAME STARTED")
+        time.sleep(1)
+        self.wm.buttons.register_callback(self.handle_button)
+        self.next_level()
 
         while self.game_running:
-            ac = self.wm.accelerometer
+            if self.wm.buttons['Two']:
+                self.restart()
 
-            # counter += 1
-            # if ac[0] > 0:
-            #     x.append(ac[0])
-            # else:
-            #     xcounter += 1
-            #
-            # if ac[1] > 0:
-            #     y.append(ac[1])
-            # else:
-            #     ycounter += 1
-            #
-            # if ac[2] > 0:
-            #     z.append(ac[2])
-            # else:
-            #     zcounter += 1
+            time.sleep(0.05)
 
+    def show_current_sequence(self):
+        print("Show current Sequence")
+        print(self.current_sequence)
+        for elem in self.current_sequence:
+            self.wm.leds = self.LED_PATTERNS[elem]
+            time.sleep(self.SEQUENCE_LED_DELAY)
+            self.wm.leds = self.LEDS_OFF
+            time.sleep(self.SEQUENCE_LED_DELAY)
+        self.wm.leds = self.LEDS_OFF
+        self.current_sequence_showed = True
 
-            print(ac)
-
-            # if ac[0] > 0 and ac[1] > 0 and ac[2] > 0:
-            #     if math.fabs(ac[0] - self.avgx) > 50:
-            #         self.game_over()
-
-            if self.wm.buttons['A']:
-                self.game_over()
-
-
-        print("GAME OVER")
-        # print("# of measures: %d" %(len(x)))
-        # print("avg x: %d" % (sum(x)/len(x)))
-        # print("avg y: %d" % (sum(y)/len(y)))
-        # print("avg z: %d" % (sum(z)/len(z)))
-        # print("x counter: %d" % (xcounter))
-        # print("y counter: %d" % (ycounter))
-        # print("z counter: %d" % (zcounter))
-        self.wm.speaker.beep()
+    def generate_next_sequence(self, length):
+        print("Generate next Sequence")
+        self.current_sequence_showed = False
+        seq = []
+        for x in range(length):
+            seq.append(random.randint(0, 3))
+        return seq
 
     def game_over(self):
         self.game_running = False
+
+        print("GAME OVER")
+        self.wm.speaker.beep()
+
+        time.sleep(1)
+
+    def restart(self):
+        self.__init__(self.wm)
 
 def main():
 
@@ -178,7 +213,6 @@ def main():
 
     print(("Connecting to %s (%s)" % (name, addr)))
     wm = wiimote.connect(addr, name)
-    # test = Test(wm)
     game = Game(wm)
 
 if __name__ == '__main__':
