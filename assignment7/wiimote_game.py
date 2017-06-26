@@ -1,31 +1,6 @@
-"""
-
-Install the package python3-bluez_0.22-1_amd64.deb from GRIPS and follow the instructions from the slide set to get
-your Wiimote working. Read the source code for wiimote.py and have a look at wiimote_demo.py to understand the API.
-Write a small Python application wiimote_game.py that takes the Bluetooth MAC address of a Wiimote as its only parameter.
-This application should implement a fun game that involves your WiiMote:
-• The application should import wiimote similar to the wiimote_demo.py example (i.e., do not modify wiimote.py
-itself).
-• On launch, print instructions for the game to stdout or show them in a Qt window.
-• Automatically connect to the Wiimote with the given MAC address.
-• Utilize at least one input modality and one output modality of the Wiimote
-• If you want, you may also implement a graphical user interface for the game - but you can also just use the Wiimote without
-any display.
-
-If you are looking for inspiration on game concepts, check out e.g., Bop It 2 or ball-in-a-maze puzzles 3 .
-Hint: Activating the rumble motor will mess with the accelerometer values. You might want to wait for a short time until you read
-and interpret them again.
-Hand in the following file:
-wiimote_game.py : a Python script that implements your game
-(Please also hand in the wiimote.py version you are using)
-
-Points
-1 The python script has been submitted, is not empty, and does not print out error messages.
-1 The script is well-structured and follows the Python style guide (PEP 8).
-2 The game is fun to play (at least a little bit)
-1 The game utilizes at least one input and one output modality of the Wiimote
-
-"""
+#!/usr/bin/env python3
+# coding: utf-8
+# -*- coding: utf-8 -*-
 
 import sys
 import wiimote
@@ -43,10 +18,10 @@ class Game(object):
                     [0, 0, 1, 0],
                     [0, 0, 0, 1]]
 
-    SEQUENCE_TO_BUTTON = { 0: 'Left',
-                           1: 'Up',
-                           2: 'Right',
-                           3: 'Down'}
+    SEQUENCE_TO_BUTTON = {0: 'Left',
+                          1: 'Up',
+                          2: 'Right',
+                          3: 'Down'}
 
     SEQUENCE_LED_DELAY = 0.5
     START_DELAY = 0.5
@@ -96,7 +71,6 @@ class Game(object):
 
         self.display_instructions()
 
-
     def display_instructions(self):
         print("\nWelcome to WiiBop Lite!\n")
         print("Goal of WiiBop Lite is to remember a showed series of LEDs.")
@@ -121,12 +95,16 @@ class Game(object):
 
         if len(buttons) > 0:
             if len(buttons) == 1:
-                if buttons[0][1] == False:
-                    print("awaited button", self.current_awaited_button)
-                    if buttons[0][0] == self.current_awaited_button:
-                        self.handle_correct_input()
-                    else:
-                        self.game_over()
+                if buttons[0] in ['Left', 'Up', 'Right', 'Down']:
+                    if buttons[0][1] is False:
+                        print("awaited button", self.current_awaited_button)
+                        if buttons[0][0] == self.current_awaited_button:
+                            self.handle_correct_input()
+                        else:
+                            self.game_over()
+                else:
+                    # some non arrow keys pressed
+                    pass
             else:
                 print(buttons)
 
@@ -183,14 +161,15 @@ class Game(object):
 
     def game_over(self):
         self.game_running = False
-
         print("GAME OVER")
         self.wm.speaker.beep()
-
+        self.wm.speaker.beep()
+        self.wm.speaker.beep()
         time.sleep(1)
 
     def restart(self):
         self.__init__(self.wm)
+
 
 def main():
 
@@ -198,8 +177,8 @@ def main():
     name_hard = 'Nintendo RVL-CNT-01-TR'
 
     input("Press the 'sync' button on the back of your Wiimote Plus " +
-      "or buttons (1) and (2) on your classic Wiimote.\n" +
-      "Press <return> once the Wiimote's LEDs start blinking.")
+          "or buttons (1) and (2) on your classic Wiimote.\n" +
+          "Press <return> once the Wiimote's LEDs start blinking.")
 
     if len(sys.argv) == 1:
         # type of both is str
@@ -214,6 +193,7 @@ def main():
     print(("Connecting to %s (%s)" % (name, addr)))
     wm = wiimote.connect(addr, name)
     game = Game(wm)
+
 
 if __name__ == '__main__':
     main()
