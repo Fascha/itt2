@@ -99,7 +99,8 @@ class WiimoteNode(Node):
 fclib.registerNodeType(WiimoteNode, [('Sensor')])
 """
 
-def connect_wiimote():
+
+def main():
     addr_hard = 'B8:AE:6E:1B:5B:03'
     name_hard = 'Nintendo RVL-CNT-01-TR'
 
@@ -118,12 +119,7 @@ def connect_wiimote():
         name = None
 
     print(("Connecting to %s (%s)" % (name, addr)))
-    wm = wiimote.connect(addr, name)
 
-    return wm
-
-def main():
-    # wm = connect_wiimote()
 
     app = QtGui.QApplication([])
     win = QtGui.QMainWindow()
@@ -138,20 +134,11 @@ def main():
     })
     w = fc.widget()
 
-    # layout.addWidget(w, 1, 4)
-
-
     wiimoteNode = fc.createNode('Wiimote')
-
-    print(wiimoteNode.text)
-    print(wiimoteNode.text.text())
     wiimoteNode.text.setText("B8:AE:6E:1B:5B:03")
-    print(wiimoteNode.text)
-    print(wiimoteNode.text.text())
 
     wiimoteNode.connect_wiimote()
 
-    # wiimoteNode1 = fc.createNode('Wiimote')
     bufferNode1 = fc.createNode('Buffer')
 
     pw1 = pg.PlotWidget()
@@ -203,7 +190,7 @@ def main():
     bufferNode4 = fc.createNode('Buffer')
 
     pw4 = pg.PlotWidget()
-    layout.addWidget(pw4, 1, 0, 2, 3)
+    layout.addWidget(pw4, 1, 0, 1, 3)
     pw4.setYRange(0, 1024)
 
     pw4Node = fc.createNode('PlotWidget')
@@ -212,12 +199,7 @@ def main():
     fc.connectTerminals(wiimoteNode4['accelY'], bufferNode4['dataIn'])
     fc.connectTerminals(bufferNode4['dataOut'], pw4Node['In'])
 
-
-    # layout.setRowStretch(0, 3)
-
-
-
-
+    layout.setRowStretch(0, 2)
 
     cw.setLayout(layout)
 
