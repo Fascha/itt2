@@ -92,10 +92,9 @@ class Game(object):
         self.game_loop()
 
     def handle_button(self, buttons):
-
         if len(buttons) > 0:
             if len(buttons) == 1:
-                if buttons[0] in ['Left', 'Up', 'Right', 'Down']:
+                if buttons[0][0] in ['Left', 'Up', 'Right', 'Down']:
                     if buttons[0][1] is False:
                         print("awaited button", self.current_awaited_button)
                         if buttons[0][0] == self.current_awaited_button:
@@ -160,12 +159,10 @@ class Game(object):
         return seq
 
     def game_over(self):
-        self.game_running = False
         print("GAME OVER")
         self.wm.speaker.beep()
-        self.wm.speaker.beep()
-        self.wm.speaker.beep()
         time.sleep(1)
+        self.game_running = False
 
     def restart(self):
         self.__init__(self.wm)

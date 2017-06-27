@@ -40,7 +40,7 @@ import numpy as np
 
 import sys
 import wiimote
-
+import wiimote_node
 
 class NormalVectorNode(Node):
     """
@@ -57,7 +57,7 @@ class LogNode(Node):
 
     pass
 
-
+"""
 class BufferNode(CtrlNode):
     # a BufferNode (see wiimote_node.py ) for each of the accelerometer channels,
     pass
@@ -97,10 +97,9 @@ class WiimoteNode(Node):
         return {'accelX': np.array([x]), 'accelY': np.array([y]), 'accelZ': np.array([z])}
 
 fclib.registerNodeType(WiimoteNode, [('Sensor')])
+"""
 
-
-def main():
-
+def connect_wiimote():
     addr_hard = 'B8:AE:6E:1B:5B:03'
     name_hard = 'Nintendo RVL-CNT-01-TR'
 
@@ -118,19 +117,115 @@ def main():
         addr = sys.argv[1]
         name = None
 
-    # print(("Connecting to %s (%s)" % (name, addr)))
-    # wm = wiimote.connect(addr, name)
+    print(("Connecting to %s (%s)" % (name, addr)))
+    wm = wiimote.connect(addr, name)
 
-    """
+    return wm
+
+def main():
+    # wm = connect_wiimote()
+
     app = QtGui.QApplication([])
     win = QtGui.QMainWindow()
     win.setWindowTitle('Analyze.py')
     cw = QtGui.QWidget()
     win.setCentralWidget(cw)
-
     layout = QtGui.QGridLayout()
+
+
+    # Create an empty flowchart with a single input and output
+    fc = Flowchart(terminals={
+    })
+    w = fc.widget()
+
+    # layout.addWidget(w, 1, 4)
+
+
+    wiimoteNode = fc.createNode('Wiimote')
+
+    print(wiimoteNode.text)
+    print(wiimoteNode.text.text())
+    wiimoteNode.text.setText("B8:AE:6E:1B:5B:03")
+    print(wiimoteNode.text)
+    print(wiimoteNode.text.text())
+
+    wiimoteNode.connect_wiimote()
+
+    # wiimoteNode1 = fc.createNode('Wiimote')
+    bufferNode1 = fc.createNode('Buffer')
+
+    pw1 = pg.PlotWidget()
+    layout.addWidget(pw1, 0, 0)
+    pw1.setYRange(0, 1024)
+
+    # pw1Node = fc.createNode('PlotWidget', pos=(0, -150))
+    pw1Node = fc.createNode('PlotWidget')
+    pw1Node.setPlot(pw1)
+
+    # fc.connectTerminals(wiimoteNode1['accelX'], bufferNode1['dataIn'])
+    # fc.connectTerminals(bufferNode1['dataOut'], pw1Node['In'])
+    fc.connectTerminals(wiimoteNode['accelX'], bufferNode1['dataIn'])
+    fc.connectTerminals(bufferNode1['dataOut'], pw1Node['In'])
+
+
+
+    # wiimoteNode2 = fc.createNode('Wiimote')
+    bufferNode2 = fc.createNode('Buffer')
+
+    pw2 = pg.PlotWidget()
+    layout.addWidget(pw2, 0, 1)
+    pw2.setYRange(0, 1024)
+
+    pw2Node = fc.createNode('PlotWidget')
+    pw2Node.setPlot(pw2)
+
+    fc.connectTerminals(wiimoteNode['accelY'], bufferNode2['dataIn'])
+    fc.connectTerminals(bufferNode2['dataOut'], pw2Node['In'])
+
+
+
+    # wiimoteNode3 = fc.createNode('Wiimote')
+    bufferNode3 = fc.createNode('Buffer')
+
+    pw3 = pg.PlotWidget()
+    layout.addWidget(pw3, 0, 2)
+    pw3.setYRange(0, 1024)
+
+    pw3Node = fc.createNode('PlotWidget')
+    pw3Node.setPlot(pw3)
+
+    fc.connectTerminals(wiimoteNode['accelZ'], bufferNode3['dataIn'])
+    fc.connectTerminals(bufferNode3['dataOut'], pw3Node['In'])
+
+
+
+    wiimoteNode4 = fc.createNode('Wiimote')
+    bufferNode4 = fc.createNode('Buffer')
+
+    pw4 = pg.PlotWidget()
+    layout.addWidget(pw4, 1, 0, 2, 3)
+    pw4.setYRange(0, 1024)
+
+    pw4Node = fc.createNode('PlotWidget')
+    pw4Node.setPlot(pw4)
+
+    fc.connectTerminals(wiimoteNode4['accelY'], bufferNode4['dataIn'])
+    fc.connectTerminals(bufferNode4['dataOut'], pw4Node['In'])
+
+
+    # layout.setRowStretch(0, 3)
+
+
+
+
+
     cw.setLayout(layout)
-    """
+
+
+    win.show()
+    if (sys.flags.interactive != 1) or not hasattr(QtCore, 'PYQT_VERSION'):
+        QtGui.QApplication.instance().exec_()
+
 
     """
     TODO:
