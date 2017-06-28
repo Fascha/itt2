@@ -42,6 +42,10 @@ import sys
 import wiimote
 import wiimote_node
 
+
+global curve
+curve = None
+
 class NormalVectorNode(Node):
     """
     a NormalVectorNode (to be implemented by you) that calculates the rotation around one axis from the accelerometer values
@@ -49,55 +53,60 @@ of the other two axes and outputs a vector (i.e., two 2D points) that can be plo
 (see video in GRIPS) - this node should accept accelerometer values on its two input terminals and provide a list/tuple of two
 tuples, such as ((0, 0),(1.0,1.0)) on its output terminal.
     """
-    pass
+
+    """
+
+    nach oben:
+        500 500 600
+
+    nach rechts:
+        600 500 500
+
+    nach unten:
+        500 500 400
+
+    nach links:
+        400 500 500
+
+    """
+
+    nodeName = "Normalvector"
+
+    def __init__(self, name):
+        terminals = {
+            'accelX': dict(io='in'),
+            'accelZ': dict(io='in'),
+            'normalX': dict(io='out'),
+            'normalZ': dict(io='out')
+        }
+        Node.__init__(self, name, terminals=terminals)
+
+
+    def process(self, **kwds):
+        x = kwds['accelX']
+        z = kwds['accelZ']
+
+        diffx = (612 - x)/200
+        diffz = (z - 508)/200
+
+        normal = [float(np.cos(diffx*np.pi)), float(np.sin(diffz*np.pi))]
+        print(normal)
+
+        # print(x)
+        #
+        # global curve
+        #
+        # curve.setData([0, normal[0]], [0, normal[1]])
+
+        return {'normalX': float(np.cos(diffx*np.pi)), 'normalY': float(np.sin(diffz*np.pi))}
+
+fclib.registerNodeType(NormalVectorNode, [('Data',)])
 
 
 class LogNode(Node):
     # a LogNode that reads values (e.g., accelerometer data) from its input terminal and writes them to stdout .
 
     pass
-
-"""
-class BufferNode(CtrlNode):
-    # a BufferNode (see wiimote_node.py ) for each of the accelerometer channels,
-    pass
-
-fclib.registerNodeType(BufferNode, [('Data',)])
-
-
-class WiimoteNode(Node):
-
-    def __init__(self, name):
-        terminals = {
-            'accelX': dict(io='out'),
-            'accelY': dict(io='out'),
-            'accelZ': dict(io='out'),
-        }
-
-        self.wiimote = None
-        self._acc_vals = []
-
-        # update timer
-        self.update_timer = QtCore.QTimer()
-        self.update_timer.timeout.connect(self.update_all_sensors)
-        self.update_timer.start(50.0)
-
-        Node.__init__(self, name, terminals=terminals)
-
-
-    def update_all_sensors(self):
-        if self.wiimote is None:
-            return
-        self._acc_vals = self.wiimote.accelerometer
-        self.update()
-
-    # this seems like the output of the node
-    def process(self, **kargs):
-        x, y, z = self._acc_vals
-        return {'accelX': np.array([x]), 'accelY': np.array([y]), 'accelZ': np.array([z])}
-
-fclib.registerNodeType(WiimoteNode, [('Sensor')])
-"""
 
 
 def main():
@@ -109,8 +118,6 @@ def main():
           "Press <return> once the Wiimote's LEDs start blinking.")
 
     if len(sys.argv) == 1:
-        # type of both is str
-        # addr, name = wiimote.find()[0]
         addr = addr_hard
         name = name_hard
 
@@ -145,18 +152,13 @@ def main():
     layout.addWidget(pw1, 0, 0)
     pw1.setYRange(0, 1024)
 
-    # pw1Node = fc.createNode('PlotWidget', pos=(0, -150))
     pw1Node = fc.createNode('PlotWidget')
     pw1Node.setPlot(pw1)
 
-    # fc.connectTerminals(wiimoteNode1['accelX'], bufferNode1['dataIn'])
-    # fc.connectTerminals(bufferNode1['dataOut'], pw1Node['In'])
     fc.connectTerminals(wiimoteNode['accelX'], bufferNode1['dataIn'])
     fc.connectTerminals(bufferNode1['dataOut'], pw1Node['In'])
 
 
-
-    # wiimoteNode2 = fc.createNode('Wiimote')
     bufferNode2 = fc.createNode('Buffer')
 
     pw2 = pg.PlotWidget()
@@ -170,8 +172,6 @@ def main():
     fc.connectTerminals(bufferNode2['dataOut'], pw2Node['In'])
 
 
-
-    # wiimoteNode3 = fc.createNode('Wiimote')
     bufferNode3 = fc.createNode('Buffer')
 
     pw3 = pg.PlotWidget()
@@ -186,40 +186,66 @@ def main():
 
 
 
-    wiimoteNode4 = fc.createNode('Wiimote')
+    # global curve
+    # print(curve)
+
+    normalNode = fc.createNode('Normalvector')
     bufferNode4 = fc.createNode('Buffer')
+    bufferNode5 = fc.createNode('Buffer')
 
     pw4 = pg.PlotWidget()
+    # curve = pg.PlotCurveItem()
+    # pw4.addItem(curve)
+    #
+
+
+
+    # curve.setData([20, 3], [20, 19])
+
+
+
+
+    # pw4 = pg.plot()
     layout.addWidget(pw4, 1, 0, 1, 3)
-    pw4.setYRange(0, 1024)
+    # pw4.setYRange(0, 1024)
+
+    # pw4.plot((10, 10), (20, 20))
 
     pw4Node = fc.createNode('PlotWidget')
     pw4Node.setPlot(pw4)
 
-    fc.connectTerminals(wiimoteNode4['accelY'], bufferNode4['dataIn'])
-    fc.connectTerminals(bufferNode4['dataOut'], pw4Node['In'])
+    # fc.connectTerminals(bufferNode1['dataOut'], normalNode['accelX'])
+    # fc.connectTerminals(bufferNode3['dataOut'], normalNode['accelZ'])
+
+    fc.connectTerminals(wiimoteNode['accelX'], normalNode['accelX'])
+    fc.connectTerminals(wiimoteNode['accelZ'], normalNode['accelZ'])
+
+    curve = pg.PlotCurveItem()
+
+    fc.connectTerminals(normalNode['normalX'], curve)
+    fc.connectTerminals(normalNode['normalY'], curve)
+
+    fc.connectTerminals(normalNode['normalX'], pw4Node['In'])
+    fc.connectTerminals(curve, pw4Node['In'])
+
+
+    # fc.connectTerminals(wiimoteNode['accelX'], bufferNode4['dataIn'])
+    # fc.connectTerminals(wiimoteNode['accelZ'], bufferNode5['dataIn'])
+    #
+    # fc.connectTerminals(bufferNode4['dataOut'], normalNode['accelX'])
+    # fc.connectTerminals(bufferNode5['dataOut'], normalNode['accelZ'])
+    #
+    # fc.connectTerminals(normalNode['normal'], pw4Node['In'])
+
+
 
     layout.setRowStretch(0, 2)
 
     cw.setLayout(layout)
 
-
     win.show()
     if (sys.flags.interactive != 1) or not hasattr(QtCore, 'PYQT_VERSION'):
         QtGui.QApplication.instance().exec_()
-
-
-    """
-    TODO:
-        create a qtapp
-        4 PlotWidgets
-            3 for the x,y,z axis of the accelerometer
-            1 for the normalvectornode
-
-
-    """
-
-
 
 
 if __name__ == '__main__':
