@@ -160,6 +160,7 @@ class Game(object):
 
     def game_over(self):
         print("GAME OVER")
+        print("Your Score: %d" % self.current_level)
         self.wm.speaker.beep()
         time.sleep(1)
         self.game_running = False
