@@ -1,0 +1,13 @@
+﻿Question 1:
+
+The defining property of Gaussian noise is that the values are normal or "gaussian" distributed, thus creating a bell-shaped graph. Is created when random signals are present.
+
+
+Question 2:
+
+Low-Pass filters allow signals that are lower that a certain cutoff frequency to pass (almost) unaltered. Higher frequencies are blocked or dampened.
+
+
+Question 3:
+
+A moving average filter is a simple low-pass filter for to dampening/blocking higher frequencies than the average. It smoothes the signal around the average.
