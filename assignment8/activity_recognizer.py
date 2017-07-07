@@ -210,7 +210,7 @@ class FftNode(Node):
         z = kwds['inZ']
 
         avg = (x + y + z)/3
-        print(avg)
+        # print(avg)
 
         freq = [np.abs(fft(avg)/len(avg))[1:len(avg)//2]]
 
@@ -337,6 +337,7 @@ class ActivityRecognition():
         middle_layout.addWidget(l1, 1, 1)
 
         self.spectrogram_widget = pg.PlotWidget()
+        self.spectrogram_widget.setYRange(0, 128)
         middle_layout.addWidget(self.spectrogram_widget, 2, 1)
 
         middle_group.setLayout(middle_layout)
