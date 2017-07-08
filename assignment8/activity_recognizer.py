@@ -50,6 +50,7 @@ import wiimote
 import sys
 
 from scipy import fft
+from sklearn import svm
 
 
 class BufferNode(CtrlNode):
@@ -171,6 +172,8 @@ class WiimoteNode(Node):
             else:
                 # self.connect_button.setText("disconnect")
                 # self.set_update_rate(self.update_rate_input.value())
+
+                # setting rate of samples
                 self.set_update_rate(60)
 
     def set_update_rate(self, rate):
@@ -202,6 +205,7 @@ class FftNode(Node):
             'inZ': dict(io='in'),
             'fft': dict(io='out')
         }
+
         Node.__init__(self, name, terminals=terminals)
 
     def process(self, **kwds):
@@ -214,7 +218,10 @@ class FftNode(Node):
 
         freq = [np.abs(fft(avg)/len(avg))[1:len(avg)//2]]
 
-        print(freq)
+        # print(freq)
+
+        # self.current_recoding.append(freq)
+        # self.current_recoding.append(freq[-1])
 
         return {'fft': freq}
 
@@ -235,22 +242,87 @@ class SvmNode(Node):
 
     def __init__(self, name):
         terminals = {
-
+            'fft': dict(io='in'),
+            'gesture': dict(io='out')
         }
+
+        print("initialized SVM NODE")
+
+        self.training_mode = False
+        self.recognition_mode = False
+
+        self.saved_gestures = {}
+        self.current_recording = []
+
+        self.classifier = svm.SVC()
+
         Node.__init__(self, name, terminals=terminals)
 
+    def set_training_mode(self, value):
+        # catch some wrong paramaters
+        if value is True:
+            self.current_recording = []
+            self.training_mode = True
+        else:
+            self.training_mode = False
+
+    def add_gesture(self, name):
+        print("Saved Gesture with name: %s" % name)
+        self.saved_gestures[name] = self.current_recording
+
+    def set_recognition_mode(self, value):
+        # catch some wrong paramaters
+        if value is True:
+            self.current_recording = []
+            self.recognition_mode = True
+        else:
+            self.recognition_mode = False
+
+    def get_current_recording(self):
+        return self.current_recording
+
+    def svm_classification(self):
+        """
+        TODO:
+        normalisiern der daten
+            - länge
+            - amplitude?
+
+        only append last value of buffer node to fft data?
+
+        """
+
+        # print("svm_classification")
+        for gesture, value in self.saved_gestures.items():
+            print(gesture)
+            print(value[0])
+
+        # for gesture in self.saved_gestures.keys():
+        #     print(gesture)
+
+        categories = None
+        training_data = None
+        self.classifier.fit(training_data, categories)
+
+        self.classifier.predict(self.current_recording)
+
     def process(self, **kwds):
-        pass
+        fft = kwds['fft']
+
+        if self.training_mode:
+            # print("SVM NODE TRAINING")
+            self.current_recording.append(fft)
+        elif self.recognition_mode:
+            # print("SVM NODE RECOGNITION")
+            self.current_recording.append(fft)
+            return self.svm_classification()
+        else:
+            # do not append samples if we are not in training or recognition mode
+            pass
+        return None
 
 
 fclib.registerNodeType(SvmNode, [('Custom'),])
-
-
-class RecordNode(Node):
-
-    nodeName = 'Record'
-
-
 
 
 class ActivityRecognition():
@@ -264,6 +336,8 @@ class ActivityRecognition():
         self.app = app
 
         self.training_mode = False
+        self.recognition_mode = False
+        # self.gestures = {}
 
         self.init_ui()
         self.setup_nodes()
@@ -292,7 +366,6 @@ class ActivityRecognition():
         self.setup_right_group()
         print("9")
 
-
     def setup_left_group(self):
 
         left_group = QtGui.QGroupBox()
@@ -316,13 +389,21 @@ class ActivityRecognition():
         self.training_label.setAlignment(QtCore.Qt.AlignCenter)
         self.training_label.setAutoFillBackground(True)
         self.training_btn = QtGui.QPushButton("Activate Training Mode")
-        # self.training_btn.clicked.connect(self.toggle_training_mode)
 
 
         left_layout.addWidget(self.training_hint, 4, 1, 1, 2)
         left_layout.addWidget(self.training_label, 5, 1, 1, 2)
         left_layout.addWidget(self.training_btn, 6, 1, 1, 2)
 
+        self.save_label = QtGui.QLabel("Enter a name for your gesture:")
+        self.save_label.setAlignment(QtCore.Qt.AlignCenter)
+        self.save_text = QtGui.QLineEdit()
+        self.save_text.setPlaceholderText("Enter Gesture Name")
+        self.save_btn = QtGui.QPushButton("Save Gesture")
+
+        left_layout.addWidget(self.save_label, 7, 1, 1, 2)
+        left_layout.addWidget(self.save_text, 8, 1, 1, 2)
+        left_layout.addWidget(self.save_btn, 9, 1, 1, 2)
 
         left_group.setLayout(left_layout)
         self.main_layout.addWidget(left_group, 1, 1, 1, 1)
@@ -366,13 +447,19 @@ class ActivityRecognition():
         recording_status_palette.setColor(self.recording_status_label.backgroundRole(), self.RED)
         self.recording_status_label.setPalette(recording_status_palette)
 
-        self.recording_status_label.setText("NOT RECORDING")
+        self.recording_status_label.setText("Not Recording")
         right_layout.addWidget(self.recording_status_label, 2, 1)
 
 
-        self.available_gestures = QtGui.QLabel()
-        self.available_gestures.setText("HERE WILL BE AVAILABLE GESTURES")
-        right_layout.addWidget(self.available_gestures, 2, 1, 3, 1)
+        self.recognized_gesture_heading = QtGui.QLabel("Recognized Gesture:")
+        self.recognized_gesture = QtGui.QLabel("UNKNOWN GESTURE")
+
+        right_layout.addWidget(self.recognized_gesture_heading, 3, 1, 1, 1)
+        right_layout.addWidget(self.recognized_gesture, 4, 1, 1, 1)
+
+        self.known_gestures = QtGui.QLabel()
+        self.known_gestures.setText("HERE WILL BE ALL KNOWN GESTURES")
+        right_layout.addWidget(self.known_gestures, 5, 1, 3, 1)
 
         right_group.setLayout(right_layout)
         self.main_layout.addWidget(right_group, 1, 7, 1, 1)
@@ -404,14 +491,33 @@ class ActivityRecognition():
         spectrogram_node.setPlot(self.spectrogram_widget)
 
         self.fc.connectTerminals(self.fft_node['fft'], spectrogram_node['In'])
+
+        self.svm_node = self.fc.createNode('Svm')
+        self.fc.connectTerminals(self.fft_node['fft'], self.svm_node['fft'])
         print("4")
 
     def connect_buttons(self):
         print("connect buttons def start")
         self.training_btn.clicked.connect(self.toggle_training_mode)
         self.wm_connect_btn.clicked.connect(self.connect_wm)
+        self.save_btn.clicked.connect(self.save_gesture)
 
         print("connect buttons def end")
+
+    def save_gesture(self):
+        # evtl in list statt dict speichern um mehrere mit gleichne namen zu haben
+        name = self.save_text.text().strip()
+        print(len(name))
+        if len(name) == 0:
+            name = "Unknown Name"
+        # self.gestures[name] = self.svm_node.get_current_recording()
+
+        self.svm_node.add_gesture(name)
+
+        self.save_text.setText("")
+
+        # print(self.svm_node.get_current_recording())
+        # print(self.gestures)
 
     def connect_wm(self):
         print("connect wm def")
@@ -434,23 +540,56 @@ class ActivityRecognition():
                 if button[0] == 'A':
                     if button[1]:
                         self.toggle_training_mode()
+                if button[0] == 'B':
+                    if button[1]:
+                        self.start_recognition_mode()
+                    else:
+                        self.stop_recognition_mode()
 
     def toggle_training_mode(self):
         self.training_mode = not self.training_mode
         print('New State (Training Mode): ', self.training_mode)
         if self.training_mode:
+            self.svm_node.set_training_mode(True)
             self.training_btn.setText("Deactivate Training Mode")
             self.training_label.setText("Training Mode ON")
             training_status_palette = self.training_label.palette()
             training_status_palette.setColor(self.training_label.backgroundRole(), self.YELLOW)
             self.training_label.setPalette(training_status_palette)
+
+            self.recording_status_label.setText("Recording Training Data")
+            p = self.recording_status_label.palette()
+            p.setColor(self.recording_status_label.backgroundRole(), self.YELLOW)
+            self.recording_status_label.setPalette(p)
         else:
+            self.svm_node.set_training_mode(False)
             self.training_btn.setText("Activate Training Mode")
             self.training_label.setText("Training Mode OFF")
             training_status_palette = self.training_label.palette()
             training_status_palette.setColor(self.training_label.backgroundRole(), self.GRAY)
             self.training_label.setPalette(training_status_palette)
 
+
+            self.recording_status_label.setText("Not Recording")
+            p = self.recording_status_label.palette()
+            p.setColor(self.recording_status_label.backgroundRole(), self.RED)
+            self.recording_status_label.setPalette(p)
+
+    def start_recognition_mode(self):
+        print("Start recognition Mode")
+        self.svm_node.set_recognition_mode(True)
+        self.recording_status_label.setText("Recording Recognition Data")
+        p = self.recording_status_label.palette()
+        p.setColor(self.recording_status_label.backgroundRole(), self.YELLOW)
+        self.recording_status_label.setPalette(p)
+
+    def stop_recognition_mode(self):
+        print("Stop recognition Mode")
+        self.svm_node.set_recognition_mode(False)
+        self.recording_status_label.setText("Not Recording")
+        p = self.recording_status_label.palette()
+        p.setColor(self.recording_status_label.backgroundRole(), self.RED)
+        self.recording_status_label.setPalette(p)
 
 def main():
     app = QtGui.QApplication([])
