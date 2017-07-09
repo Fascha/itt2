@@ -1,0 +1,16 @@
+1.
+Avoid Pitfalls When Using Machine Learning in HCI Studies
+
+2.
+Gesture recognition for practical usage in phones or a classifier for e.g. gender identification for research purposes
+
+3.
+Misinterpretation and mis-association of correlation and causation
+wrong extraploation of effects of correlation rather than causation
+
+4.
+- Kostakos: in "Modelling Smartphone Usage: A Markov State Transition Model" about the data collection via a smartphone app in order to develop a prediction for user interaction
+- Musolesi: in "Designing content-driven intelligent notification mechanisms for mobile applications" a classifier is developed in order to get the right moment for notifications shown on a phone
+- Musolesi: in "Anticipatory Mobile Computing: A Survey of the State of the Art and Research Challenges" a survey is conducted on the prediction of context using mobile phones
+- Musolesi: in "Investigating causality in human behavior from smartphone sensor data: a quasi-experimental approach" smartphone sensor data is used in different situations
+in order to investigate their influence on the stress level
