@@ -1,3 +1,43 @@
+"""
+
+8.1: Activity Recognition
+Implement a Python application that allows the user to record a set of different gestures or activities (standing, sitting, running,
+shaking the Wiimote, throwing it, etc.) and distinguish between them using data from the Wiimote’s accelerometer.
+Specifically, implement the following as a PyQtGraph flowchart:
+• a graphical user interface where the user can add new gestures and record examples for these gestures using the Wiimote
+• a feature-extraction filter that extracts useful information from the raw values (e.g., FFT, stddev, derivatives)
+• a machine-learning classifier (e.g., a SVM) that is trained on the example gestures whenever a new example gesture is recorded
+• a mode where the user can execute one of the trained gestures with the Wiimote and the system recognizes it.
+• optional but helpful: allow the user to remove and retrain gestures.
+The individual nodes of the flowchart should be reusable and modular, and should have sensible interfaces (i.e., input and output
+terminals pass appropriate values, such as lists or integers; no use of application-global variables). Experiment with different sets
+of gestures and find a few that can be distinguished well.
+
+Example implementation:
+implement an FftNode that reads in information from a BufferNode and outputs a frequency spectrogram.
+Furthermore, implement an SvmNode that can be switched between training mode and prediction mode and “inactive”
+via buttons in the configuration pane (see WiimoteNode and BufferNode for examples). In training mode it continually reads in a
+sample (i.e. a feature vector consisting of multiple values, such as a list of frequency components) and trains a SVM classifier with
+this data (and previous data). The category for this sample can be defined by a text field in the control pane.In prediction mode
+the SvmNode should read in a sample and output the predicted category as a string. Implement a DisplayTextNode that displays
+the currently recognized/predicted category on the screen.
+Hand in the following file:
+activity_recognizer.py : a Python file implementing your solution.
+Hand in further helper files (incl. wiimote.py, etc.) as needed.
+
+
+Points
+1 The python script has been submitted, is not empty, and does not print out error messages.
+1 The script is well-structured and follows the Python style guide (PEP 8).
+1 The script is well documented.
+3 The script correctly implements the features above.
+1 The flowchart nodes have sensible interfaces.
+2 The script accurately detects 3 different gestures.
+2 Training and prediction work in real time
+2 The user interface for training and prediction is user-friendly and visually pleasant
+
+"""
+
 from pyqtgraph.flowchart import Flowchart, Node
 from pyqtgraph.flowchart.library.common import CtrlNode
 import pyqtgraph.flowchart.library as fclib
@@ -6,12 +46,48 @@ import pyqtgraph as pg
 import numpy as np
 
 import wiimote
+# import wiimote_node
 import sys
 
 from scipy import fft
 from sklearn import svm
 
 from collections import Counter
+
+
+
+class BufferNode(CtrlNode):
+    """
+    Buffers the last n samples provided on input and provides them as a list of
+    length n on output.
+    A spinbox widget allows for setting the size of the buffer.
+    Default size is 32 samples.
+    """
+    nodeName = "Buffer"
+    uiTemplate = [
+        ('size',  'spin', {'value': 32.0, 'step': 1.0, 'bounds': [0.0, 128.0]}),
+    ]
+
+    def __init__(self, name):
+        terminals = {
+            'dataIn': dict(io='in'),
+            'dataOut': dict(io='out'),
+        }
+        self.counter = 0
+        self._buffer = np.array([])
+        CtrlNode.__init__(self, name, terminals=terminals)
+
+    def process(self, **kwds):
+        self.counter += 1
+        # print(self.counter)
+        size = int(self.ctrls['size'].value())
+        self._buffer = np.append(self._buffer, kwds['dataIn'])
+        self._buffer = self._buffer[-size:]
+        output = self._buffer
+        print(output)
+        return {'dataOut': output}
+
+fclib.registerNodeType(BufferNode, [('Data',)])
 
 
 class WiimoteNode(Node):
@@ -36,6 +112,33 @@ class WiimoteNode(Node):
         }
         self.wiimote = None
         self._acc_vals = []
+
+        # # Configuration UI
+        # self.ui = QtGui.QWidget()
+        # self.layout = QtGui.QGridLayout()
+        #
+        # label = QtGui.QLabel("Bluetooth MAC address:")
+        # self.layout.addWidget(label)
+        #
+        # self.text = QtGui.QLineEdit()
+        # self.btaddr = "b8:ae:6e:18:5d:ab"  # set some example
+        # self.text.setText(self.btaddr)
+        # self.layout.addWidget(self.text)
+        #
+        # label2 = QtGui.QLabel("Update rate (Hz)")
+        # self.layout.addWidget(label2)
+        #
+        # self.update_rate_input = QtGui.QSpinBox()
+        # self.update_rate_input.setMinimum(0)
+        # self.update_rate_input.setMaximum(60)
+        # self.update_rate_input.setValue(20)
+        # self.update_rate_input.valueChanged.connect(self.set_update_rate)
+        # self.layout.addWidget(self.update_rate_input)
+        #
+        # self.connect_button = QtGui.QPushButton("connect")
+        # self.connect_button.clicked.connect(self.connect_wiimote)
+        # self.layout.addWidget(self.connect_button)
+        # self.ui.setLayout(self.layout)
 
         # update timer
         self.update_timer = QtCore.QTimer()
@@ -118,14 +221,14 @@ class FftNode(Node):
         z = kwds['inZ']
 
         avg = (x + y + z)/3
-
         freq = [np.abs(fft(avg)/len(avg))[1:len(avg)//2]]
-
+        # print(freq)
+        # print()
+        # print()
         return {'fft': freq}
 
 
 fclib.registerNodeType(FftNode, [('Custom',)])
-
 
 
 class SvmNode(Node):
@@ -141,9 +244,7 @@ class SvmNode(Node):
 
     def __init__(self, name):
         terminals = {
-            'inX': dict(io='in'),
-            'inY': dict(io='in'),
-            'inZ': dict(io='in'),
+            'fft': dict(io='in'),
             'gesture': dict(io='out')
         }
 
@@ -151,8 +252,6 @@ class SvmNode(Node):
 
         self.training_mode = False
         self.recognition_mode = False
-
-        self.cutoff_length = 0
 
         self.saved_gestures = {}
         self.current_recording = []
@@ -185,9 +284,7 @@ class SvmNode(Node):
         else:
             self.recognition_mode = False
             print("HERE WILL BE THE PREDICTED GESTURE OUTPUT")
-            prediction = self.category_to_gesture[self.svm_classification()[0]]
-            print("Prediction is: ", prediction)
-            return prediction
+            print("Predition is: ", self.svm_classification())
 
     def get_current_recording(self):
         return self.current_recording
@@ -199,75 +296,114 @@ class SvmNode(Node):
         id = 0
 
         for gesture, value in self.saved_gestures.items():
-            id += 1
-            self.category_to_gesture[id] = gesture
+            """
+            print("VALUE")
+            print(value)
+            training_data.append(value)
             categories.append(id)
 
-            x = []
-            y = []
-            z = []
-            for elem in value:
-                x.append(elem[0][0])
-                y.append(elem[1][0])
-                z.append(elem[2][0])
+            for line in value:
+                print("LINE")
+                print(line)
+                for array in line:
+                    print("ARRAY")
+                    print(array)
+            """
 
-            training_data.append(self.get_fft(x, y, z))
+            self.category_to_gesture[id] = gesture
+            id += 1
 
-        # normalized length of fft
-        self.cutoff_length = min([len(l) for l in training_data])
+            for fft in value:
+                l = []
+                for num in fft[0]:
+                    l.append(num)
 
-        normalized_fft = []
-        for l in training_data:
-            normalized_fft.append(l[:self.cutoff_length])
 
-        training_data = normalized_fft
+                # training_data.append(fft[0])
+                # print(fft[0][0])
+                # print(l)
+                # print()
+                # print()
+                # print()
+                training_data.append(l)
+                categories.append(id)
+
+        # print(training_data)
+        # print(categories)
+
 
         self.classifier.fit(training_data, categories)
 
+
     def svm_classification(self):
+        """
+        TODO:
+        normalisiern der daten
+            - länge
+            - amplitude?
+
+        only append last value of buffer node to fft data?
+
+
+        """
         print("Classification")
-        x = []
-        y = []
-        z = []
-        for elem in self.current_recording:
-            x.append(elem[0][0])
-            y.append(elem[1][0])
-            z.append(elem[2][0])
+        # print(self.current_recording)
+        # print()
+        # print()
+        # print()
+        # print(self.current_recording[0])
+        t = []
+        for x in self.current_recording:
+            t.append(x[0])
 
-        gesture_fft = self.get_fft(x, y, z)
+        # print()
+        # print()
+        # print()
+        # print()
+        # print("THIS SHOUDL BE RIGHT")
+        # print(t)
 
-        if len(gesture_fft) > self.cutoff_length:
-            print("bigger than cutoff")
-            gesture_fft = gesture_fft[:self.cutoff_length]
-        elif len(gesture_fft) < self.cutoff_length:
 
-            print("smaller than cutoff")
-            temp = np.zeros(self.cutoff_length)
-            for x in range(len(gesture_fft)):
-                temp[x] = gesture_fft[x]
-            gesture_fft = temp
-        else:
-            print("ELSE ?!?!?!?!")
+        prediction = self.classifier.predict(t)
 
-        print(gesture_fft)
+        print("PREDICTION: ", Counter(prediction))
 
-        return self.classifier.predict(gesture_fft)
+        """
+        # print("svm_classification")
+        for gesture, value in self.saved_gestures.items():
+            print(gesture)
+            print(value[0])
 
-    def get_fft(self, x, y, z):
-        avg = (np.array(x) + np.array(y) + np.array(z))/3
+        # for gesture in self.saved_gestures.keys():
+        #     print(gesture)
 
-        return np.abs(fft(avg)/len(avg))[1:len(avg)//2]
+        categories = None
+        training_data = None
+        self.classifier.fit(training_data, categories)
+
+        self.classifier.predict(self.current_recording)
+        """
 
     def process(self, **kwds):
-        x = kwds['inX']
-        y = kwds['inY']
-        z = kwds['inZ']
+        fft = kwds['fft']
 
-
+        # print("FFT")
+        # print(fft)
+        # print("FFT[0]")
+        # print(fft[0])
+        # print("FFT[0][0]")
+        # print(fft[0][0])
+        # print()
+        # print()
+        # print()
         if self.training_mode:
-            self.current_recording.append((x, y, z))
+            # print("SVM NODE TRAINING")
+            self.current_recording.append(fft)
         elif self.recognition_mode:
-            self.current_recording.append((x, y, z))
+            # print("SVM NODE RECOGNITION")
+            self.current_recording.append(fft)
+            return None
+            # return self.svm_classification()
         else:
             # do not append samples if we are not in training or recognition mode
             pass
@@ -289,6 +425,7 @@ class ActivityRecognition():
 
         self.training_mode = False
         self.recognition_mode = False
+        # self.gestures = {}
 
         self.init_ui()
         self.setup_nodes()
@@ -322,6 +459,7 @@ class ActivityRecognition():
         self.wm_addr.setPlaceholderText("Enter your mac address here")
         self.wm_addr.setText("B8:AE:6E:1B:5B:03")
         self.wm_connect_btn = QtGui.QPushButton("Connect")
+        # wm_connect_btn.clicked.connect(self.connect_wm)
 
         left_layout.addWidget(wm_label, 1, 1, 1, 2)
         left_layout.addWidget(self.wm_addr, 2, 1, 1, 2)
@@ -414,19 +552,27 @@ class ActivityRecognition():
         self.fc = Flowchart(terminals={})
 
         self.wiimote_node = self.fc.createNode('Wiimote')
+
+        self.buffer_node_x = self.fc.createNode('Buffer')
+        self.buffer_node_y = self.fc.createNode('Buffer')
+        self.buffer_node_z = self.fc.createNode('Buffer')
+
         self.fft_node = self.fc.createNode('Fft')
+        self.fc.connectTerminals(self.wiimote_node['accelX'], self.buffer_node_x['dataIn'])
+        self.fc.connectTerminals(self.wiimote_node['accelY'], self.buffer_node_y['dataIn'])
+        self.fc.connectTerminals(self.wiimote_node['accelZ'], self.buffer_node_z['dataIn'])
+
+        self.fc.connectTerminals(self.buffer_node_x['dataOut'], self.fft_node['inX'])
+        self.fc.connectTerminals(self.buffer_node_y['dataOut'], self.fft_node['inY'])
+        self.fc.connectTerminals(self.buffer_node_z['dataOut'], self.fft_node['inZ'])
+
+        spectrogram_node = self.fc.createNode('PlotWidget')
+        spectrogram_node.setPlot(self.spectrogram_widget)
+
+        self.fc.connectTerminals(self.fft_node['fft'], spectrogram_node['In'])
+
         self.svm_node = self.fc.createNode('Svm')
-
-        self.fc.connectTerminals(self.wiimote_node['accelX'], self.svm_node['inX'])
-        self.fc.connectTerminals(self.wiimote_node['accelY'], self.svm_node['inY'])
-        self.fc.connectTerminals(self.wiimote_node['accelZ'], self.svm_node['inZ'])
-
-        # spectrogram_node = self.fc.createNode('PlotWidget')
-        # spectrogram_node.setPlot(self.spectrogram_widget)
-        #
-        # self.fc.connectTerminals(self.fft_node['fft'], spectrogram_node['In'])
-
-        # self.fc.connectTerminals(self.fft_node['fft'], self.svm_node['fft'])
+        self.fc.connectTerminals(self.fft_node['fft'], self.svm_node['fft'])
 
     def connect_buttons(self):
         self.training_btn.clicked.connect(self.toggle_training_mode)
@@ -501,7 +647,6 @@ class ActivityRecognition():
 
     def start_recognition_mode(self):
         print("Start recognition Mode")
-        self.recognized_gesture.setText("UNKNOWN")
         self.svm_node.set_recognition_mode(True)
         self.recording_status_label.setText("Recording Recognition Data")
         p = self.recording_status_label.palette()
@@ -510,13 +655,11 @@ class ActivityRecognition():
 
     def stop_recognition_mode(self):
         print("Stop recognition Mode")
-        self.recognized_gesture.setText(self.svm_node.set_recognition_mode(False))
+        self.svm_node.set_recognition_mode(False)
         self.recording_status_label.setText("Not Recording")
         p = self.recording_status_label.palette()
         p.setColor(self.recording_status_label.backgroundRole(), self.RED)
         self.recording_status_label.setPalette(p)
-
-
 
 def main():
     app = QtGui.QApplication([])
