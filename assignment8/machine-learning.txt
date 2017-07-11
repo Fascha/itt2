@@ -5,8 +5,9 @@ Avoid Pitfalls When Using Machine Learning in HCI Studies
 Gesture recognition for practical usage in phones or a classifier for e.g. gender identification for research purposes
 
 3.
-Misinterpretation and mis-association of correlation and causation
-wrong extraploation of effects of correlation rather than causation
+In order to interpret the results, relationships have to be identified.
+The problem in these cases are the misinterpretation and mis-association of correlation and causation and the wrong extraploation of the effects of correlation rather than causation.
+The conclusions made then connect two events to each other although their results are actually independent from each other.
 
 4.
 - Kostakos: in "Modelling Smartphone Usage: A Markov State Transition Model" about the data collection via a smartphone app in order to develop a prediction for user interaction
