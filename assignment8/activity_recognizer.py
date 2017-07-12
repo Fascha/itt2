@@ -297,6 +297,7 @@ class ActivityRecognition():
     GREEN = QtGui.QColor(0, 255, 0)
     YELLOW = QtGui.QColor(255, 255, 0)
     GRAY = QtGui.QColor(100, 100, 100)
+    BLACK = QtGui.QColor(0, 0, 0)
 
     def __init__(self, app):
         self.app = app
@@ -390,6 +391,7 @@ class ActivityRecognition():
 
         connected_status_palette = self.connected_status_label.palette()
         connected_status_palette.setColor(self.connected_status_label.backgroundRole(), self.RED)
+        connected_status_palette.setColor(self.connected_status_label.foregroundRole(), self.BLACK)
         self.connected_status_label.setPalette(connected_status_palette)
 
         self.connected_status_label.setText("NOT CONNECTED")
@@ -401,6 +403,7 @@ class ActivityRecognition():
 
         recording_status_palette = self.recording_status_label.palette()
         recording_status_palette.setColor(self.recording_status_label.backgroundRole(), self.RED)
+        recording_status_palette.setColor(self.recording_status_label.foregroundRole(), self.BLACK)
         self.recording_status_label.setPalette(recording_status_palette)
 
         self.recording_status_label.setText("Not Recording")
@@ -456,6 +459,7 @@ class ActivityRecognition():
         self.connected_status_label.setText("CONNECTED")
         connected_status_palette = self.connected_status_label.palette()
         connected_status_palette.setColor(self.connected_status_label.backgroundRole(), self.GREEN)
+        connected_status_palette.setColor(self.connected_status_label.foregroundRole(), self.BLACK)
         self.connected_status_label.setPalette(connected_status_palette)
 
         self.wiimote_node.wiimote.buttons.register_callback(self.handle_wm_button)
@@ -481,6 +485,7 @@ class ActivityRecognition():
             self.training_label.setText("Training Mode ON")
             training_status_palette = self.training_label.palette()
             training_status_palette.setColor(self.training_label.backgroundRole(), self.YELLOW)
+            training_status_palette.setColor(self.training_label.foregroundRole(), self.BLACK)
             self.training_label.setPalette(training_status_palette)
 
             self.recording_status_label.setText("Recording Training Data")
@@ -498,6 +503,7 @@ class ActivityRecognition():
             self.recording_status_label.setText("Not Recording")
             p = self.recording_status_label.palette()
             p.setColor(self.recording_status_label.backgroundRole(), self.RED)
+            p.setColor(self.recording_status_label.foregroundRole(), self.BLACK)
             self.recording_status_label.setPalette(p)
 
     def start_recognition_mode(self):
