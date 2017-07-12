@@ -127,14 +127,13 @@ class FftNode(Node):
 fclib.registerNodeType(FftNode, [('Custom',)])
 
 
-
 class SvmNode(Node):
     """
-    implement an SvmNode that can be switched between training mode and prediction mode and “inactive”
-    via buttons in the configuration pane (see WiimoteNode and BufferNode for examples). In training mode it continually reads in a
-    sample (i.e. a feature vector consisting of multiple values, such as a list of frequency components) and trains a SVM classifier with
-    this data (and previous data).
-
+    Support Vector Machine that can be switched between training mode and recognition mode via buttons in the UI and
+    on the WiiMote.
+    In training mode it continually reads in a date from the accelerometer.
+    When starting recognition mode the SVM is getting trained with all saved data.
+    While in recognition Mode the data is getting saved and then handed to the SVM for a prediction.
     """
 
     nodeName = 'Svm'
@@ -146,8 +145,6 @@ class SvmNode(Node):
             'inZ': dict(io='in'),
             'gesture': dict(io='out')
         }
-
-        print("initialized SVM NODE")
 
         self.training_mode = False
         self.recognition_mode = False
@@ -170,7 +167,6 @@ class SvmNode(Node):
             self.training_mode = True
         else:
             self.training_mode = False
-            # print(self.current_recording)
 
     def add_gesture(self, name):
         print("Saved Gesture with name: %s" % name)
@@ -184,78 +180,96 @@ class SvmNode(Node):
             self.recognition_mode = True
         else:
             self.recognition_mode = False
-            print("HERE WILL BE THE PREDICTED GESTURE OUTPUT")
-            prediction = self.category_to_gesture[self.svm_classification()[0]]
+            prediction = self.svm_classification()
+            if prediction:
+                prediction = self.category_to_gesture[prediction[0]]
             print("Prediction is: ", prediction)
             return prediction
 
-    def get_current_recording(self):
-        return self.current_recording
-
     def svm_train_classifier(self):
-        print("STARTED TRAINING")
-        training_data = []
-        categories = []
-        id = 0
+        """
+        Here all saved gestures are handed into a Fast Fourier Transformation to extract the present frequency spectrum.
+        After that the data normalized to the length of the gesture with the fewest samples
+        Finally the frequency data is handed to the SVM for training.
+        """
 
-        for gesture, value in self.saved_gestures.items():
-            id += 1
-            self.category_to_gesture[id] = gesture
-            categories.append(id)
+        # needed because a SVM needs more than 1 class
+        if len(self.saved_gestures.keys()) <= 1:
+            print("Not enough gestures!")
+        else:
+            training_data = []
+            categories = []
+            id = 0
 
+            for gesture, value in self.saved_gestures.items():
+                id += 1
+                # needed to map the id returned from the SVM to a name of a gesture
+                self.category_to_gesture[id] = gesture
+                categories.append(id)
+
+                x = []
+                y = []
+                z = []
+                for elem in value:
+                    x.append(elem[0][0])
+                    y.append(elem[1][0])
+                    z.append(elem[2][0])
+
+                training_data.append(self.get_fft(x, y, z))
+
+            # normalized length of fft
+            self.cutoff_length = min([len(l) for l in training_data])
+
+            normalized_fft = []
+            for l in training_data:
+                normalized_fft.append(l[:self.cutoff_length])
+
+            training_data = normalized_fft
+
+            self.classifier.fit(training_data, categories)
+
+    def svm_classification(self):
+        """
+        Here the date from the recognition is handed into a Fast Fourier Transformation.
+        After that it is normalized to the number of samples from the shortest gesture.
+        This step is needed because a constraint of a SVM is that the length of the feature vectors and the vector for
+        the prediction need to be the same.
+        """
+
+        if len(self.saved_gestures.keys()) <= 1:
+            print("Not enough gestures!")
+            return None
+        else:
             x = []
             y = []
             z = []
-            for elem in value:
+            for elem in self.current_recording:
                 x.append(elem[0][0])
                 y.append(elem[1][0])
                 z.append(elem[2][0])
 
-            training_data.append(self.get_fft(x, y, z))
+            gesture_fft = self.get_fft(x, y, z)
 
-        # normalized length of fft
-        self.cutoff_length = min([len(l) for l in training_data])
+            if len(gesture_fft) > self.cutoff_length:
+                print("bigger than cutoff")
+                gesture_fft = gesture_fft[:self.cutoff_length]
+            elif len(gesture_fft) < self.cutoff_length:
 
-        normalized_fft = []
-        for l in training_data:
-            normalized_fft.append(l[:self.cutoff_length])
+                print("smaller than cutoff")
+                temp = np.zeros(self.cutoff_length)
+                for x in range(len(gesture_fft)):
+                    temp[x] = gesture_fft[x]
+                gesture_fft = temp
+            else:
+                pass
 
-        training_data = normalized_fft
-
-        self.classifier.fit(training_data, categories)
-
-    def svm_classification(self):
-        print("Classification")
-        x = []
-        y = []
-        z = []
-        for elem in self.current_recording:
-            x.append(elem[0][0])
-            y.append(elem[1][0])
-            z.append(elem[2][0])
-
-        gesture_fft = self.get_fft(x, y, z)
-
-        if len(gesture_fft) > self.cutoff_length:
-            print("bigger than cutoff")
-            gesture_fft = gesture_fft[:self.cutoff_length]
-        elif len(gesture_fft) < self.cutoff_length:
-
-            print("smaller than cutoff")
-            temp = np.zeros(self.cutoff_length)
-            for x in range(len(gesture_fft)):
-                temp[x] = gesture_fft[x]
-            gesture_fft = temp
-        else:
-            print("ELSE ?!?!?!?!")
-
-        print(gesture_fft)
-
-        return self.classifier.predict(gesture_fft)
+            return self.classifier.predict(gesture_fft)
 
     def get_fft(self, x, y, z):
+        """
+        Here the avarage of the x, y, z data from the accelerometer is handed into the Fast Fourier Transformation.
+        """
         avg = (np.array(x) + np.array(y) + np.array(z))/3
-
         return np.abs(fft(avg)/len(avg))[1:len(avg)//2]
 
     def process(self, **kwds):
@@ -263,7 +277,7 @@ class SvmNode(Node):
         y = kwds['inY']
         z = kwds['inZ']
 
-
+        # appending data to the current recording if we are in training or recognition mode
         if self.training_mode:
             self.current_recording.append((x, y, z))
         elif self.recognition_mode:
@@ -274,7 +288,7 @@ class SvmNode(Node):
         return None
 
 
-fclib.registerNodeType(SvmNode, [('Custom'),])
+fclib.registerNodeType(SvmNode, [('Custom',)])
 
 
 class ActivityRecognition():
@@ -309,11 +323,10 @@ class ActivityRecognition():
         self.win.setLayout(self.main_layout)
 
         self.setup_left_group()
-        self.setup_middle_group()
+        # self.setup_middle_group()
         self.setup_right_group()
 
     def setup_left_group(self):
-
         left_group = QtGui.QGroupBox()
         left_layout = QtGui.QGridLayout()
 
@@ -327,14 +340,13 @@ class ActivityRecognition():
         left_layout.addWidget(self.wm_addr, 2, 1, 1, 2)
         left_layout.addWidget(self.wm_connect_btn, 3, 1, 1, 2)
 
-
-        self.training_hint = QtGui.QLabel("You can toggle Training Mode by pressing 'A' on your WiiMote!")
+        self.training_hint = QtGui.QLabel("You can toggle Training Mode by pressing 'A' on your WiiMote!\n" +
+                                          "To activate recognition mode HOLD down the 'B' button!")
 
         self.training_label = QtGui.QLabel("NO WIIMOTE CONNECTED")
         self.training_label.setAlignment(QtCore.Qt.AlignCenter)
         self.training_label.setAutoFillBackground(True)
         self.training_btn = QtGui.QPushButton("Activate Training Mode")
-
 
         left_layout.addWidget(self.training_hint, 4, 1, 1, 2)
         left_layout.addWidget(self.training_label, 5, 1, 1, 2)
@@ -354,7 +366,6 @@ class ActivityRecognition():
         self.main_layout.addWidget(left_group, 1, 1, 1, 1)
 
     def setup_middle_group(self):
-
         middle_group = QtGui.QGroupBox()
         middle_layout = QtGui.QGridLayout()
 
@@ -395,7 +406,6 @@ class ActivityRecognition():
         self.recording_status_label.setText("Not Recording")
         right_layout.addWidget(self.recording_status_label, 2, 1)
 
-
         self.recognized_gesture_heading = QtGui.QLabel("Recognized Gesture:")
         self.recognized_gesture = QtGui.QLabel("UNKNOWN GESTURE")
 
@@ -403,7 +413,7 @@ class ActivityRecognition():
         right_layout.addWidget(self.recognized_gesture, 4, 1, 1, 1)
 
         self.known_gestures = QtGui.QLabel()
-        self.known_gestures.setText("HERE WILL BE ALL KNOWN GESTURES")
+        self.known_gestures.setText("Saved Gestures:\n")
         right_layout.addWidget(self.known_gestures, 5, 1, 3, 1)
 
         right_group.setLayout(right_layout)
@@ -421,26 +431,18 @@ class ActivityRecognition():
         self.fc.connectTerminals(self.wiimote_node['accelY'], self.svm_node['inY'])
         self.fc.connectTerminals(self.wiimote_node['accelZ'], self.svm_node['inZ'])
 
-        # spectrogram_node = self.fc.createNode('PlotWidget')
-        # spectrogram_node.setPlot(self.spectrogram_widget)
-        #
-        # self.fc.connectTerminals(self.fft_node['fft'], spectrogram_node['In'])
-
-        # self.fc.connectTerminals(self.fft_node['fft'], self.svm_node['fft'])
-
     def connect_buttons(self):
         self.training_btn.clicked.connect(self.toggle_training_mode)
         self.wm_connect_btn.clicked.connect(self.connect_wm)
         self.save_btn.clicked.connect(self.save_gesture)
 
     def save_gesture(self):
-        # evtl in list statt dict speichern um mehrere mit gleichne namen zu haben
         name = self.save_text.text().strip()
         print(len(name))
         if len(name) == 0:
             name = "Unknown Name"
-        # self.gestures[name] = self.svm_node.get_current_recording()
 
+        self.known_gestures.setText(self.known_gestures.text() + "\n" + name)
         self.svm_node.add_gesture(name)
 
         self.save_text.setText("")
@@ -493,7 +495,6 @@ class ActivityRecognition():
             training_status_palette.setColor(self.training_label.backgroundRole(), self.GRAY)
             self.training_label.setPalette(training_status_palette)
 
-
             self.recording_status_label.setText("Not Recording")
             p = self.recording_status_label.palette()
             p.setColor(self.recording_status_label.backgroundRole(), self.RED)
@@ -510,12 +511,23 @@ class ActivityRecognition():
 
     def stop_recognition_mode(self):
         print("Stop recognition Mode")
-        self.recognized_gesture.setText(self.svm_node.set_recognition_mode(False))
+        gesture = self.svm_node.set_recognition_mode(False)
+        if gesture:
+            self.recognized_gesture.setText(gesture)
+            p = self.recognized_gesture.palette()
+            p.setColor(self.recognized_gesture.backgroundRole(), self.GREEN)
+            self.recognized_gesture.setPalette(p)
+
+        else:
+            self.recognized_gesture.setText("Not enough gestures! Save another one!")
+            p = self.recognized_gesture.palette()
+            p.setColor(self.recognized_gesture.backgroundRole(), self.RED)
+            self.recognized_gesture.setPalette(p)
+
         self.recording_status_label.setText("Not Recording")
         p = self.recording_status_label.palette()
         p.setColor(self.recording_status_label.backgroundRole(), self.RED)
         self.recording_status_label.setPalette(p)
-
 
 
 def main():
