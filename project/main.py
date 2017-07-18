@@ -6,7 +6,6 @@ from functools import partial
 
 from PyQt5 import Qt, QtGui, QtCore, QtWidgets
 
-
 """
 TODO:
 

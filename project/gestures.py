@@ -5,11 +5,18 @@ import pyqtgraph.flowchart.library as fclib
 from pyqtgraph.Qt import QtGui, QtCore
 import pyqtgraph as pg
 import numpy as np
+from sklearn import svm
 
 import wiimote
 import sys
 
 from scipy import fft
+
+"""
+json file used for library of gestures so no initial learning of gestures has to be done
+
+"""
+
 
 class WiimoteNode(Node):
     """
@@ -83,13 +90,15 @@ class WiimoteNode(Node):
             self.wiimote.accelerometer.register_callback(self.update_accel)
         else:
             self.wiimote.accelerometer.unregister_callback(self.update_accel)
-            self.update_timer.start(1000.0/rate)
+            self.update_timer.start(1000.0 / rate)
 
     def process(self, **kwdargs):
         x, y, z = self._acc_vals
         return {'accelX': np.array([x]), 'accelY': np.array([y]), 'accelZ': np.array([z])}
 
+
 fclib.registerNodeType(WiimoteNode, [('Sensor',)])
+
 
 class FftNode(Node):
     """
@@ -113,9 +122,9 @@ class FftNode(Node):
         y = kwds['inY']
         z = kwds['inZ']
 
-        avg = (x + y + z)/3
+        avg = (x + y + z) / 3
 
-        freq = [np.abs(fft(avg)/len(avg))[1:len(avg)//2]]
+        freq = [np.abs(fft(avg) / len(avg))[1:len(avg) // 2]]
 
         return {'fft': freq}
 
@@ -265,8 +274,8 @@ class SvmNode(Node):
         """
         Here the avarage of the x, y, z data from the accelerometer is handed into the Fast Fourier Transformation.
         """
-        avg = (np.array(x) + np.array(y) + np.array(z))/3
-        return np.abs(fft(avg)/len(avg))[1:len(avg)//2]
+        avg = (np.array(x) + np.array(y) + np.array(z)) / 3
+        return np.abs(fft(avg) / len(avg))[1:len(avg) // 2]
 
     def process(self, **kwds):
         x = kwds['inX']
@@ -288,7 +297,6 @@ fclib.registerNodeType(SvmNode, [('Custom',)])
 
 
 class ActivityRecognition():
-
     RED = QtGui.QColor(255, 0, 0)
     GREEN = QtGui.QColor(0, 255, 0)
     YELLOW = QtGui.QColor(255, 255, 0)
@@ -314,7 +322,7 @@ class ActivityRecognition():
 
         self.win = QtGui.QWidget()
         self.win.setWindowTitle('Activity Recognition')
-        self.win.setGeometry(width/4, height/4, width/2, height/2)
+        self.win.setGeometry(width / 4, height / 4, width / 2, height / 2)
 
         self.main_layout = QtGui.QGridLayout()
         self.win.setLayout(self.main_layout)
@@ -431,7 +439,7 @@ class ActivityRecognition():
         self.fc.connectTerminals(self.wiimote_node['accelZ'], self.svm_node['inZ'])
 
     def connect_buttons(self):
-        self.training_btn.clicked.connect(self.toggle_training_mode)
+        # self.training_btn.clicked.connect(self.toggle_training_mode)
         self.wm_connect_btn.clicked.connect(self.connect_wm)
         self.save_btn.clicked.connect(self.save_gesture)
 
@@ -463,9 +471,9 @@ class ActivityRecognition():
     def handle_wm_button(self, buttons):
         if len(buttons) > 0:
             for button in buttons:
-                if button[0] == 'A':
-                    if button[1]:
-                        self.toggle_training_mode()
+                # if button[0] == 'A':
+                    # if button[1]:
+                        # self.toggle_training_mode()
                 if button[0] == 'B':
                     if button[1]:
                         self.start_recognition_mode()
